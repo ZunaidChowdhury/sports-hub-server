@@ -35,16 +35,26 @@ async function run() {
         const database = client.db("SportsHub");
         const facilitiesCollection = database.collection("facilities");
 
-        // create a single user
-        app.post('/facilities', async (req, res) => {
-            const newFacility = req.body;
-            console.log('server/newFacility: ', newFacility);            
-            const result = await facilitiesCollection.insertOne(newFacility);
-            console.log('server/result: ', result); 
-            
+        // get all facilities
+        app.get('/facilities', async (req, res) => {
+            const cursor = facilitiesCollection.find();
+            const result = await cursor.toArray();
             res.send(result);
             // res.json(result);
         });
+
+        // create a single user
+        app.post('/facilities', async (req, res) => {
+            const newFacility = req.body;
+            console.log('server/newFacility: ', newFacility);
+            const result = await facilitiesCollection.insertOne(newFacility);
+            console.log('server/result: ', result);
+
+            res.send(result);
+            // res.json(result);
+        });
+
+
 
 
 
