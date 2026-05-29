@@ -43,6 +43,13 @@ async function run() {
             // res.json(result);
         });
 
+        // get featured facilities (featuredPosition 1-8)
+        app.get('/featured-facilities', async (req, res) => {
+            const cursor = facilitiesCollection.find({ featuredPosition: { $gte: 1, $lte: 8 } }).sort({ featuredPosition: 1 });
+            const result = await cursor.toArray();
+            res.send(result);
+        });
+
         // create a single user
         app.post('/facilities', async (req, res) => {
             const newFacility = req.body;
