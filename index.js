@@ -37,10 +37,35 @@ async function run() {
 
         // get all facilities
         app.get('/facilities', async (req, res) => {
-            const cursor = facilitiesCollection.find();
-            const result = await cursor.toArray();
-            res.send(result);
-            // res.json(result);
+            try {
+                const { searchQuery = null, sportsType = null } = req.query;
+                let cursor = null;
+
+                if (searchQuery === null && sportsType === null) {
+                    cursor = facilitiesCollection.find();
+                }
+                else {
+                    let filter = {};
+
+                    if (searchQuery) {
+                        filter.facilityName = { $regex: searchQuery, $options: 'i' };
+                    }
+
+                    if (sportsType) {
+                        filter.sportType = sportsType;
+                    }
+
+                    cursor = facilitiesCollection.find(filter);
+                }
+
+                const result = await cursor.toArray();
+
+                res.send(result);
+
+            } catch (error) {
+                console.log(error)
+                res.status(500).send({ error: 'Failed to load facilities' });
+            }
         });
 
         // get featured facilities (featuredPosition 1-8)
@@ -50,12 +75,13 @@ async function run() {
             res.send(result);
         });
 
-        // create a single user
+
+        // creates a facility
         app.post('/facilities', async (req, res) => {
             const newFacility = req.body;
-            console.log('server/newFacility: ', newFacility);
+            // console.log('server/newFacility: ', newFacility);
             const result = await facilitiesCollection.insertOne(newFacility);
-            console.log('server/result: ', result);
+            // console.log('server/result: ', result);
 
             res.send(result);
             // res.json(result);
