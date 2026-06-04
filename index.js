@@ -6,6 +6,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import { MongoClient, ServerApiVersion } from 'mongodb';
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const app = express();
 dotenv.config();
@@ -17,6 +18,31 @@ const port = process.env.PORT || 5001;
 // MIDDLEWARES
 app.use(cors());
 app.use(express.json());
+
+const JWKS = createRemoteJWKSet(
+    new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
+)
+
+const verifyToken = async (req, res, next) => {
+    const authHeader = req?.headers.authorization
+    if (!authHeader) {
+        return res.status(401).json({ message: 'Unauthorized' })
+    }
+    const token = authHeader.split(' ')[1]
+    if (!token) {
+        return res.status(401).json({ message: 'Unauthorized' })
+    }
+    // console.log(token);
+    try {
+        const { payload } = await jwtVerify(token, JWKS)
+        // console.log('payload', payload);
+        req.user = payload;
+        next()
+    } catch (error) {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+}
+
 
 
 const client = new MongoClient(uri, {
@@ -87,7 +113,25 @@ async function run() {
             // res.json(result);
         });
 
+        // get user created facilities 
+        app.get('/manage-facilities', verifyToken, async (req, res) => {
+            try {
+                const userEmail = req.user?.email;
 
+                if (!userEmail) {
+                    return res.status(400).json({ message: 'User not found.' });
+                }
+
+                const query = { owner: userEmail };
+                const cursor = facilitiesCollection.find(query);
+                const result = await cursor.toArray();
+
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ error: 'Failed to fetch your facilities' });
+            }
+        });
 
 
 
