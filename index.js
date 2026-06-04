@@ -5,7 +5,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-import { MongoClient, ServerApiVersion } from 'mongodb';
+import { MongoClient, ObjectId, ServerApiVersion } from 'mongodb';
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const app = express();
@@ -132,6 +132,20 @@ async function run() {
                 res.status(500).send({ error: 'Failed to fetch your facilities' });
             }
         });
+
+
+
+        // deleting a single user
+        app.delete('/manage-facilities/delete/:facilityId', verifyToken, async (req, res) => {
+            console.log('delete endpoint 1')
+            const facilityId = req.params.facilityId;
+            console.log('delete endpoint / facilityId: ', facilityId)
+            const deletedFacility = await facilitiesCollection.deleteOne({ _id: new ObjectId(facilityId) });
+            console.log('delete endpoint / deletedFacility: ', deletedFacility)
+            res.send(deletedFacility);
+            // res.json(user);
+        });
+
 
 
 
