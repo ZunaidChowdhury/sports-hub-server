@@ -123,7 +123,7 @@ async function run() {
                 }
 
                 const query = { owner: userEmail };
-                const cursor = facilitiesCollection.find(query);
+                const cursor = facilitiesCollection.find(query).sort({ updatedAt: -1 });
                 const result = await cursor.toArray();
 
                 res.send(result);
@@ -133,9 +133,29 @@ async function run() {
             }
         });
 
+        // get a single facility
+        app.get('/manage-facilities/edit/:facilityId', verifyToken, async (req, res) => {
+            const facilityId = req.params.facilityId;
+            const facility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
+            res.send(facility);
+            // res.json(user);
+        });
+
+        app.patch('/manage-facilities/edit/:facilityId', verifyToken, async (req, res) => {
+            const facilityId = req.params.facilityId;
+            const updatedData = req.body;
+            const targetFacility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
+            if (targetFacility.owner === req.user.email) {
+                const result = await facilitiesCollection.updateOne({ _id: new ObjectId(facilityId) }, { $set: updatedData });
+                res.send(result);
+            }
+            else {
+                return res.status(401).json({ message: 'Unauthorized' })
+            }
+        });
 
 
-        // deleting a single user
+        // deleting a single facility
         app.delete('/manage-facilities/delete/:facilityId', verifyToken, async (req, res) => {
             console.log('delete endpoint 1')
             const facilityId = req.params.facilityId;
