@@ -60,6 +60,7 @@ async function run() {
 
         const database = client.db("SportsHub");
         const facilitiesCollection = database.collection("facilities");
+        const bookingsCollection = database.collection("bookings");
 
         // get all facilities
         app.get('/facilities', async (req, res) => {
@@ -113,6 +114,17 @@ async function run() {
             // res.json(result);
         });
 
+        // creates a booking
+        app.post('/bookings', verifyToken, async (req, res) => {
+            const newBooking = req.body;
+            console.log('server/newBooking: ', newBooking);
+            const result = await bookingsCollection.insertOne(newBooking);
+            console.log('server/bookings/result: ', result);
+
+            res.send(result);
+            // res.json(result);
+        });
+
         // get user created facilities 
         app.get('/manage-facilities', verifyToken, async (req, res) => {
             try {
@@ -134,7 +146,7 @@ async function run() {
         });
 
         // get a single facility
-        app.get('/manage-facilities/edit/:facilityId', verifyToken, async (req, res) => {
+        app.get('/all-facilities/:facilityId', async (req, res) => {
             const facilityId = req.params.facilityId;
             const facility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
             res.send(facility);
