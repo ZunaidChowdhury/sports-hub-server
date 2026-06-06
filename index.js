@@ -116,13 +116,40 @@ async function run() {
 
         // creates a booking
         app.post('/bookings', verifyToken, async (req, res) => {
-            const newBooking = req.body;
-            console.log('server/newBooking: ', newBooking);
-            const result = await bookingsCollection.insertOne(newBooking);
-            console.log('server/bookings/result: ', result);
+            try {
+                const newBooking = req.body;
+                // console.log('server/newBooking: ', newBooking);
 
-            res.send(result);
-            // res.json(result);
+                const { facilityId, bookingDate, timeSlot } = newBooking;
+
+                if (!facilityId || !bookingDate || !timeSlot) {
+                    return res.status(400).json({ message: 'Missing booking fields' });
+                }
+
+                // build a query that matches existing bookings for the same facility, date and timeSlot
+                const query = {
+                    facilityId,
+                    bookingDate,
+                    timeSlot,
+                };
+
+                const existing = await bookingsCollection.findOne(query);
+                if (existing) {
+                    // console.log('already booked. existing: ', existing)
+                    return res.status(409).json({ message: 'Already booked' });
+                }
+
+                // ensure createdAt if not provided
+                if (!newBooking.createdAt) newBooking.createdAt = new Date().toISOString();
+
+                const result = await bookingsCollection.insertOne(newBooking);
+                // console.log('server/bookings/result: ', result);
+
+                res.send(result);
+            } catch (error) {
+                console.error('Failed to create booking', error);
+                res.status(500).json({ message: 'Failed to create booking' });
+            }
         });
 
         // get user created facilities 
