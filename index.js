@@ -114,6 +114,82 @@ async function run() {
             // res.json(result);
         });
 
+        // get user created facilities 
+        app.get('/manage-facilities', verifyToken, async (req, res) => {
+            try {
+                const userEmail = req.user?.email;
+
+                if (!userEmail) {
+                    return res.status(400).json({ message: 'User not found.' });
+                }
+
+                const query = { owner: userEmail };
+                const cursor = facilitiesCollection.find(query).sort({ updatedAt: -1 });
+                const result = await cursor.toArray();
+
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ error: 'Failed to fetch your facilities' });
+            }
+        });
+
+
+
+        // get a single facility
+        app.get('/all-facilities/:facilityId', async (req, res) => {
+            const facilityId = req.params.facilityId;
+            const facility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
+            res.send(facility);
+            // res.json(user);
+        });
+
+        app.patch('/manage-facilities/edit/:facilityId', verifyToken, async (req, res) => {
+            const facilityId = req.params.facilityId;
+            const updatedData = req.body;
+            const targetFacility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
+            if (targetFacility.owner === req.user.email) {
+                const result = await facilitiesCollection.updateOne({ _id: new ObjectId(facilityId) }, { $set: updatedData });
+                res.send(result);
+            }
+            else {
+                return res.status(401).json({ message: 'Unauthorized' })
+            }
+        });
+
+
+        // deleting a single facility
+        app.delete('/manage-facilities/delete/:facilityId', verifyToken, async (req, res) => {
+            console.log('delete endpoint 1')
+            const facilityId = req.params.facilityId;
+            console.log('delete endpoint / facilityId: ', facilityId)
+            const deletedFacility = await facilitiesCollection.deleteOne({ _id: new ObjectId(facilityId) });
+            console.log('delete endpoint / deletedFacility: ', deletedFacility)
+            res.send(deletedFacility);
+            // res.json(user);
+        });
+
+
+        // get user added bookings
+        app.get('/my-bookings', verifyToken, async (req, res) => {
+            try {
+                const userEmail = req.user?.email;
+
+                if (!userEmail) {
+                    return res.status(400).json({ message: 'User not found.' });
+                }
+
+                const query = { userEmail: userEmail };
+                const cursor = bookingsCollection.find(query).sort({ createdAt: -1 });
+                const result = await cursor.toArray();
+
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ error: 'Failed to fetch your bookings' });
+            }
+        });
+
         // creates a booking
         app.post('/bookings', verifyToken, async (req, res) => {
             try {
@@ -152,60 +228,16 @@ async function run() {
             }
         });
 
-        // get user created facilities 
-        app.get('/manage-facilities', verifyToken, async (req, res) => {
-            try {
-                const userEmail = req.user?.email;
-
-                if (!userEmail) {
-                    return res.status(400).json({ message: 'User not found.' });
-                }
-
-                const query = { owner: userEmail };
-                const cursor = facilitiesCollection.find(query).sort({ updatedAt: -1 });
-                const result = await cursor.toArray();
-
-                res.send(result);
-            } catch (error) {
-                console.error(error);
-                res.status(500).send({ error: 'Failed to fetch your facilities' });
-            }
-        });
-
-        // get a single facility
-        app.get('/all-facilities/:facilityId', async (req, res) => {
-            const facilityId = req.params.facilityId;
-            const facility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
-            res.send(facility);
-            // res.json(user);
-        });
-
-        app.patch('/manage-facilities/edit/:facilityId', verifyToken, async (req, res) => {
-            const facilityId = req.params.facilityId;
+        // cancel booking
+        app.patch('/bookings/:id', verifyToken, async (req, res) => {
+            const id = req.params.id;
             const updatedData = req.body;
-            const targetFacility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
-            if (targetFacility.owner === req.user.email) {
-                const result = await facilitiesCollection.updateOne({ _id: new ObjectId(facilityId) }, { $set: updatedData });
-                res.send(result);
-            }
-            else {
-                return res.status(401).json({ message: 'Unauthorized' })
-            }
+            // console.log('server/update/bookings/id: ', id, ' updatedData: ', updatedData);
+            const result = await bookingsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updatedData });
+            // console.log('server/update/bookings/result: ', result);
+            res.send(result);
+            // res.json(result);
         });
-
-
-        // deleting a single facility
-        app.delete('/manage-facilities/delete/:facilityId', verifyToken, async (req, res) => {
-            console.log('delete endpoint 1')
-            const facilityId = req.params.facilityId;
-            console.log('delete endpoint / facilityId: ', facilityId)
-            const deletedFacility = await facilitiesCollection.deleteOne({ _id: new ObjectId(facilityId) });
-            console.log('delete endpoint / deletedFacility: ', deletedFacility)
-            res.send(deletedFacility);
-            // res.json(user);
-        });
-
-
 
 
         // Send a ping to confirm a successful connection
