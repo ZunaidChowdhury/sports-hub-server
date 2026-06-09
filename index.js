@@ -198,11 +198,12 @@ async function run() {
                     facilityId,
                     bookingDate,
                     timeSlot,
+                    status: 'pending'
                 };
 
                 const existing = await bookingsCollection.findOne(query);
-                if (existing.status === 'pending') {
-                    return res.status(409).json({ message: 'Already booked' });
+                if (existing) {
+                    return res.status(409).json({ message: 'Already booked.' });
                 }
 
 
