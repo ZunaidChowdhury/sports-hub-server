@@ -1,5 +1,5 @@
-import dns from "node:dns/promises";
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
+// import dns from "node:dns/promises";
+// dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 import express from "express";
 import cors from "cors";
@@ -56,13 +56,13 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server (optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
 
         const database = client.db("SportsHub");
         const facilitiesCollection = database.collection("facilities");
         const bookingsCollection = database.collection("bookings");
 
-        // get all facilities
+        // get all facilities [public]
         app.get('/facilities', async (req, res) => {
             try {
                 const { searchQuery = null, sportsType = null } = req.query;
@@ -79,12 +79,12 @@ async function run() {
                     }
 
                     if (sportsType) {
-                        filter.sportType = sportsType;
+                        filter.facilityType = sportsType;
                     }
 
                     cursor = facilitiesCollection.find(filter);
                 }
-
+                
                 const result = await cursor.toArray();
 
                 res.send(result);
@@ -95,7 +95,7 @@ async function run() {
             }
         });
 
-        // get featured facilities (featuredPosition 1-8)
+        // get featured facilities (featuredPosition 1-8) [public]
         app.get('/featured-facilities', async (req, res) => {
             const cursor = facilitiesCollection.find({ featuredPosition: { $gte: 1, $lte: 8 } }).sort({ featuredPosition: 1 });
             const result = await cursor.toArray();
@@ -103,18 +103,16 @@ async function run() {
         });
 
 
-        // creates a facility
-        app.post('/facilities', async (req, res) => {
+        // creates facility [private]
+        app.post('/facilities', verifyToken, async (req, res) => {
             const newFacility = req.body;
-            // console.log('server/newFacility: ', newFacility);
             const result = await facilitiesCollection.insertOne(newFacility);
-            // console.log('server/result: ', result);
 
             res.send(result);
             // res.json(result);
         });
 
-        // get user created facilities 
+        // get user created facilities on manage page
         app.get('/manage-facilities', verifyToken, async (req, res) => {
             try {
                 const userEmail = req.user?.email;
@@ -134,16 +132,14 @@ async function run() {
             }
         });
 
-
-
-        // get a single facility
-        app.get('/all-facilities/:facilityId', async (req, res) => {
+        // get a single facility [private] 
+        app.get('/all-facilities/:facilityId', verifyToken, async (req, res) => {
             const facilityId = req.params.facilityId;
             const facility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
             res.send(facility);
-            // res.json(user);
         });
 
+        // update facility [private]
         app.patch('/manage-facilities/edit/:facilityId', verifyToken, async (req, res) => {
             const facilityId = req.params.facilityId;
             const updatedData = req.body;
@@ -158,19 +154,17 @@ async function run() {
         });
 
 
-        // deleting a single facility
+        // deleting a single facility [private]
         app.delete('/manage-facilities/delete/:facilityId', verifyToken, async (req, res) => {
-            console.log('delete endpoint 1')
             const facilityId = req.params.facilityId;
-            console.log('delete endpoint / facilityId: ', facilityId)
-            const deletedFacility = await facilitiesCollection.deleteOne({ _id: new ObjectId(facilityId) });
-            console.log('delete endpoint / deletedFacility: ', deletedFacility)
-            res.send(deletedFacility);
-            // res.json(user);
+            const targetFacility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
+            if (targetFacility.owner === req.user.email) {
+                const deletedFacility = await facilitiesCollection.deleteOne({ _id: new ObjectId(facilityId) });
+                res.send(deletedFacility);
+            };
         });
 
-
-        // get user added bookings
+        // get user added bookings [private]
         app.get('/my-bookings', verifyToken, async (req, res) => {
             try {
                 const userEmail = req.user?.email;
@@ -190,19 +184,16 @@ async function run() {
             }
         });
 
-        // creates a booking
+        // creates a booking [private]
         app.post('/bookings', verifyToken, async (req, res) => {
             try {
                 const newBooking = req.body;
-                // console.log('server/newBooking: ', newBooking);
-
                 const { facilityId, bookingDate, timeSlot } = newBooking;
 
                 if (!facilityId || !bookingDate || !timeSlot) {
                     return res.status(400).json({ message: 'Missing booking fields' });
                 }
 
-                // build a query that matches existing bookings for the same facility, date and timeSlot
                 const query = {
                     facilityId,
                     bookingDate,
@@ -211,15 +202,19 @@ async function run() {
 
                 const existing = await bookingsCollection.findOne(query);
                 if (existing) {
-                    // console.log('already booked. existing: ', existing)
                     return res.status(409).json({ message: 'Already booked' });
                 }
 
-                // ensure createdAt if not provided
-                if (!newBooking.createdAt) newBooking.createdAt = new Date().toISOString();
+
+                newBooking.createdAt = new Date().toISOString();
+                newBooking.userEmail = req.user?.email;
 
                 const result = await bookingsCollection.insertOne(newBooking);
-                // console.log('server/bookings/result: ', result);
+
+                await facilitiesCollection.updateOne(
+                    { _id: new ObjectId(facilityId) },
+                    { $inc: { bookingCount: 1 } }
+                );
 
                 res.send(result);
             } catch (error) {
@@ -228,21 +223,23 @@ async function run() {
             }
         });
 
-        // cancel booking
+        // cancel booking [private]
         app.patch('/bookings/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const updatedData = req.body;
-            // console.log('server/update/bookings/id: ', id, ' updatedData: ', updatedData);
-            const result = await bookingsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updatedData });
-            // console.log('server/update/bookings/result: ', result);
-            res.send(result);
-            // res.json(result);
+
+            const targetBooking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
+            if (targetBooking.userEmail === req.user.email) {
+                const result = await bookingsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updatedData });
+
+                res.send(result);
+            }
         });
 
 
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
@@ -253,7 +250,7 @@ run().catch(console.dir);
 
 // ROUTES
 app.get('/', (req, res) => {
-    res.send('Respond from home');
+    res.send('Server is live...');
 })
 
 app.listen(port, () => {
