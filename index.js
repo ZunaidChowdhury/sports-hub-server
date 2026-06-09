@@ -1,5 +1,5 @@
-// import dns from "node:dns/promises";
-// dns.setServers(["8.8.8.8", "1.1.1.1"]);
+import dns from "node:dns/promises";
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 import express from "express";
 import cors from "cors";
@@ -132,8 +132,8 @@ async function run() {
             }
         });
 
-        // get a single facility [private] 
-        app.get('/all-facilities/:facilityId', verifyToken, async (req, res) => {
+        // get a single facility [public] 
+        app.get('/all-facilities/:facilityId', async (req, res) => {
             const facilityId = req.params.facilityId;
             const facility = await facilitiesCollection.findOne({ _id: new ObjectId(facilityId) });
             res.send(facility);
