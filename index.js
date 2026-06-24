@@ -43,8 +43,6 @@ const verifyToken = async (req, res, next) => {
     }
 }
 
-
-
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
